@@ -1,0 +1,16 @@
+ktor:
+    application:
+        modules:
+            - com.kodea.ApplicationKt.module
+    deployment:
+        port: 8080
+
+db:
+    mongo:
+        host: "127.0.0.1"
+        port: "27017"
+        database:
+            name: "myDatabase"
+        maxPoolSize: 20
+jwt:
+    secretKey: "6673D2C5F86DD6E6F5F99AB6EF794"
