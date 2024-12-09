@@ -3,7 +3,6 @@ package com.kodea.data
 import com.kodea.model.*
 import com.kodea.utlis.Response
 import com.kodea.utlis.generateToken
-import com.kodea.utlis.hashedPassword
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.MongoDatabase
 import com.mongodb.client.model.Aggregates
@@ -23,11 +22,11 @@ import org.bson.types.ObjectId
 import org.mindrot.jbcrypt.BCrypt
 
 
-class StudentRepoImpl(private val database: MongoDatabase) {
+class StudentRepoImpl( database: MongoDatabase) {
     private var collection: MongoCollection<Document>
     private var coursesCollection: MongoCollection<Document>
     //private var instructorsCollection: MongoCollection<Document>
-    //val gridFSBucket: GridFSBucket = GridFSBuckets.insert(database)
+    //val gridFSBucket: GridFSBucket = GridFSBuckets.register(database)
 
     init {
         database.createCollection("users")
@@ -49,7 +48,7 @@ class StudentRepoImpl(private val database: MongoDatabase) {
         }
 
     // Insert one student
-    suspend fun insert(student: Student): String = withContext(Dispatchers.IO) {
+    suspend fun register(student: Student): String = withContext(Dispatchers.IO) {
         val doc = student.toDocument()
         collection.insertOne(doc)
         doc["_id"].toString()
@@ -135,25 +134,6 @@ class StudentRepoImpl(private val database: MongoDatabase) {
     }
 
 
-    suspend fun getInstructors() = withContext(Dispatchers.IO) {
-        try {
-
-            val doc = coursesCollection.find()
-                .map(Doc.Companion::fromDocument).toList()
-            if (doc.isNotEmpty()) {
-                for (i in doc[0].instructors) {
-                    val instructor = i.toDocument()
-                    collection.insertOne(instructor)
-                }
-            }
-            "added succefully"
-        } catch (e: Exception) {
-            "error : ${e.message}"
-        }
-
-    }
-
-
 }
 
 //fun jsonToMap(json: String): Map<String, Any> = kotlinx.serialization.json.Json.parseToJsonElement(json).jsonObject.toMap()
@@ -165,18 +145,4 @@ fun Document.toMap(): Map<String, Any?> {
     ).toMap()
 }
 
-@Serializable
-data class Doc(
-    val courses: List<Course>,
-    val categories: List<Category>,
-    val instructors: List<Instructor>
-) {
-    fun toDocument(): Document = Document.parse(Json.encodeToString(this))
-
-    companion object {
-        private val json = Json { ignoreUnknownKeys = true }
-
-        fun fromDocument(document: Document): Doc = json.decodeFromString(document.toJson())
-    }
-}
 

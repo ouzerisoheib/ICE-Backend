@@ -3,9 +3,7 @@ package com.kodea
 import com.kodea.config.*
 import com.kodea.di.DaggerAppComponent
 import com.kodea.di.MongoModule
-import com.kodea.routes.courseRoutes
-import com.kodea.routes.instructorRoutes
-import com.kodea.routes.studentRoutes
+import com.kodea.routes.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -35,6 +33,8 @@ fun Application.module() {
     val instructorService = appComponent.instructorService()
     val courseService = appComponent.courseService()
     val fileService = appComponent.fileService()
+    val reviewService = appComponent.reviewService()
+    val categoryService = appComponent.categoryService()
     val gridFSBucket = appComponent.gridFSBucket()
     val mongoClient = appComponent.mongoClient()
     install(PartialContent)
@@ -50,6 +50,8 @@ fun Application.module() {
         courseRoutes(courseService , fileService , mongoClient)
         studentRoutes(studentService , fileService)
         instructorRoutes(instructorService)
+        reviewRoute(reviewService)
+        categoryRoutes(categoryService)
     }
 }
 

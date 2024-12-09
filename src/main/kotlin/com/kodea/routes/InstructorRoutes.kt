@@ -27,7 +27,18 @@ fun Route.instructorRoutes(instructorService : InstructorRepoImpl) {
             val id = call.principal<UserPrincipal>()?.id
             call.respond(HttpStatusCode.Created , mapOf("token" to generateToken(id!!, Role.Instructor)))
         }
-        get("/instructors") {
+        get("/instructor/{id}") {
+            val params = call.parameters
+            val id = params["id"] ?: return@get call.respond(
+                HttpStatusCode.BadRequest,
+                "instructor id is required"
+            )
+            val instructor = instructorService.getInstructor(id)
+            instructor?.let {
+                call.respondText(instructor , ContentType.Application.Json)
+                return@get
+            }
+            call.respond(HttpStatusCode.NotFound , "instructor not found")
 
         }
         get("/instructors/{id}") {

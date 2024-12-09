@@ -1,9 +1,6 @@
 package com.kodea.di
 
-import com.kodea.data.CourseRepoImpl
-import com.kodea.data.FileRepoImpl
-import com.kodea.data.InstructorRepoImpl
-import com.kodea.data.StudentRepoImpl
+import com.kodea.data.*
 import com.mongodb.client.MongoClient
 import com.mongodb.client.gridfs.GridFSBucket
 import dagger.Component
@@ -18,4 +15,6 @@ interface AppComponent {
     fun fileService(): FileRepoImpl
     fun gridFSBucket(): GridFSBucket
     fun mongoClient(): MongoClient
+    fun reviewService(): ReviewRepoImpl
+    fun categoryService(): CategoryRepoImpl
 }

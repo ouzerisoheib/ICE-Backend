@@ -25,7 +25,7 @@ fun Route.studentRoutes(studentService : StudentRepoImpl , fileService : FileRep
             call.respond(HttpStatusCode.BadRequest, "Email Already in Use")
             return@post
         }
-        val id = studentService.insert(studentDTO.copy(password = hashedPassword(studentDTO.password)).toStudent())
+        val id = studentService.register(studentDTO.copy(password = hashedPassword(studentDTO.password)).toStudent())
         val token = generateToken(id, Role.Student)
         //call.respondRedirect("/auth/signIn")
         call.respond(HttpStatusCode.Created, hashMapOf("token" to token , "id" to id))

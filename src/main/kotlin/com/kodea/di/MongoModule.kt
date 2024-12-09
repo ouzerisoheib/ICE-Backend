@@ -1,9 +1,6 @@
 package com.kodea.di
 
-import com.kodea.data.CourseRepoImpl
-import com.kodea.data.FileRepoImpl
-import com.kodea.data.InstructorRepoImpl
-import com.kodea.data.StudentRepoImpl
+import com.kodea.data.*
 import com.mongodb.client.MongoClient
 import com.mongodb.client.MongoClients
 import com.mongodb.client.MongoDatabase
@@ -36,19 +33,31 @@ class MongoModule(private val config: ApplicationConfig) {
 
     @Provides
     @Singleton
-    fun provideStudentService(database: MongoDatabase, gridFSBucket: GridFSBucket): StudentRepoImpl {
+    fun provideStudentService(database: MongoDatabase): StudentRepoImpl {
         return StudentRepoImpl(database)
     }
     @Provides
     @Singleton
-    fun provideInstructorService(database: MongoDatabase, gridFSBucket: GridFSBucket): InstructorRepoImpl {
+    fun provideInstructorService(database: MongoDatabase): InstructorRepoImpl {
         return InstructorRepoImpl(database)
     }
 
     @Provides
     @Singleton
-    fun provideCourseRepoImpl(database: MongoDatabase, gridFSBucket: GridFSBucket): CourseRepoImpl {
+    fun provideCourseRepoImpl(database: MongoDatabase): CourseRepoImpl {
         return CourseRepoImpl(database)
+    }
+
+    @Provides
+    @Singleton
+    fun provideReviewRepoImpl(database: MongoDatabase): ReviewRepoImpl {
+        return ReviewRepoImpl(database)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCategoryRepoImpl(database: MongoDatabase): CategoryRepoImpl {
+        return CategoryRepoImpl(database)
     }
 
     @Provides

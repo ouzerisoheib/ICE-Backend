@@ -10,7 +10,7 @@ import io.ktor.server.application.*
 fun Application.configureDatabases(studentService: StudentRepoImpl, courseService : CourseRepoImpl, gridFsBuckets: GridFSBucket) {
     /*val mongoDatabase = connectToMongoDB()
     val studentService = DatabaseService(mongoDatabase)
-    val gridFSBucket: GridFSBucket = GridFSBuckets.insert(mongoDatabase)*/
+    val gridFSBucket: GridFSBucket = GridFSBuckets.register(mongoDatabase)*/
 
 
     /*routing {
@@ -137,7 +137,7 @@ fun Application.configureDatabases(studentService: StudentRepoImpl, courseServic
                     )
 
                     // Save the updated course
-                    studentService.createCourse(newCourse.toCourse())
+                    studentService.addCourse(newCourse.toCourse())
                     call.respond(HttpStatusCode.Created, "success")
                 }
             } catch (e: Exception) {

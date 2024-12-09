@@ -28,7 +28,6 @@ import java.util.Locale.LanguageRange
 data class Course(
     @BsonId
     val id : String? = null,
-
     val instructorId: Map<String , String>?,
     val title : String,
     val subTitle : String,
@@ -39,17 +38,17 @@ data class Course(
     val description : String,
     val topic : String,
     val level : Level,
-    val duration : Double,
+    val duration : Double = 0.0,
     val thumbnail : String? = null,
-    val videoTrailer : String? = null,
-    val courseGoals : List<String>,
-    val requirements : List<String>,
-    val targetAudience : List<String>,
+    val courseTrailer : String? = null,
+    val courseGoals : List<String> = emptyList(),
+    val requirements : List<String> = emptyList(),
+    val targetAudience : List<String> = emptyList(),
     val language : String = Locale.UK.language,
-    val sections : List<Section>,
-    @Contextual
-    val createdAt : kotlinx.datetime.Instant,
-    val enrolledStudents : List<String>
+    val sections : Array<Section> = arrayOf(),
+    //@Contextual
+    val createdAt : Long = Clock.System.now().toEpochMilliseconds(),
+    val enrolledStudents : List<String> = emptyList()
 ){
     fun toDocument(): Document = Document.parse(Json.encodeToString(this))
 
@@ -63,29 +62,29 @@ data class Course(
 @Serializable
 data class CourseDTO(
     @BsonId
-    val instructorId : String? = ObjectId().toString(),
+    val instructorId : String = "",
     val title : String,
     val subTitle : String,
     val category : String,
     val subCategory : String,
     val price : Int,
-    val discount : Int,
+    val discount : Int = 0,
     val description : String,
     val topic : String,
     val level : Level,
-    val duration : Double,
+    val duration : Double= 0.0,
     val thumbnail : String? = null,
-    val videoTrailer : String? = null,
-    val courseGoals : List<String>,
-    val requirements : List<String>,
-    val targetAudience : List<String>,
+    val courseTrailer : String? = null,
+    val courseGoals : List<String> = emptyList(),
+    val requirements : List<String> = emptyList(),
+    val targetAudience : List<String> = emptyList(),
     val language : String = Locale.UK.language,
-    val sections : List<Section>,
+    val sections : Array<Section> = arrayOf(),
 )
 
 fun CourseDTO.toCourse() : Course = Course(
     id = null,
-    instructorId = mapOf("\$oid" to this.instructorId!!),
+    instructorId = mapOf("\$oid" to this.instructorId),
     title = this.title,
     subTitle = this.subTitle,
     category = this.category,
@@ -97,13 +96,13 @@ fun CourseDTO.toCourse() : Course = Course(
     level = this.level,
     duration = this.duration,
     thumbnail = this.thumbnail,
-    videoTrailer = this.videoTrailer,
+    courseTrailer = this.courseTrailer,
     courseGoals = this.courseGoals,
     requirements = this.requirements,
     targetAudience = this.targetAudience,
     language = this.language,
     sections = this.sections,
-    createdAt = Clock.System.now(),
+    createdAt = Clock.System.now().toEpochMilliseconds(),
     enrolledStudents = emptyList()
 )
 

@@ -25,7 +25,6 @@ class FileRepoImpl(private val gridFSBucket: GridFSBucket) {
             // Calculate the duration of the video
             val duration = getVideoDuration(tempFile)
 
-            // Add metadata with contentType and duration
             val metadata = Document("contentType", contentType)
             if (duration != null) {
                 metadata.append("duration", duration)
@@ -35,7 +34,7 @@ class FileRepoImpl(private val gridFSBucket: GridFSBucket) {
                 .metadata(metadata)
 
             val fileId = gridFSBucket.uploadFromStream(fileName, tempFile.inputStream(), uploadOptions).toString()
-            tempFile.delete() // Clean up temp file
+            tempFile.delete()
             fileId to duration
         }
 
