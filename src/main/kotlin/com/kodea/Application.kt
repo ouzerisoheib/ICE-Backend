@@ -12,13 +12,13 @@ import io.ktor.server.routing.*
 
 
 fun main(args: Array<String>) {
-    //io.ktor.server.netty.EngineMain.main(args)
+
 
     embeddedServer(
         Netty,
         port = 1234,
         host = "0.0.0.0",
-        ){
+    ){
         module()
 
     }.start(wait = true)
@@ -47,9 +47,9 @@ fun Application.module() {
     configureHTTP()
     configureRouting()
     routing {
-        courseRoutes(courseService , fileService , mongoClient)
+        courseRoutes(courseService , fileService ,gridFSBucket ,mongoClient)
         studentRoutes(studentService , fileService)
-        instructorRoutes(instructorService)
+        instructorRoutes(instructorService ,  courseService,fileService)
         reviewRoute(reviewService)
         categoryRoutes(categoryService)
     }

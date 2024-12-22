@@ -1,5 +1,6 @@
 package com.kodea.data
 
+
 import com.kodea.model.Course
 import com.kodea.model.Lecture
 import com.kodea.model.Section
@@ -17,22 +18,30 @@ import org.bson.conversions.Bson
 import org.bson.types.Binary
 import org.bson.types.ObjectId
 import java.util.Base64
+import com.kodea.utlis.getVideoDuration
+import com.mongodb.client.model.UnwindOptions
+import com.mongodb.client.model.UpdateOptions
+
+import java.io.File
+import java.util.logging.Filter
 
 class CourseRepoImpl(private val database: MongoDatabase) {
-
     private var coursesCollection: MongoCollection<Document>
+    private var instructorCollection: MongoCollection<Document>
 
     init {
         database.createCollection("courses")
         coursesCollection = database.getCollection("courses")
+        instructorCollection = database.getCollection("users")
     }
 
-    suspend fun addCourse(course: Course, courseImage: Binary): ObjectId? {
+
+    /*suspend fun addCourse(course: Course, courseImage: Binary): ObjectId? {
         return withContext(Dispatchers.IO) {
             val result = coursesCollection.insertOne(course.toDocument().append("courseImage", courseImage))
             result.insertedId?.asObjectId()?.value
         }
-    }
+    }*/
 
     suspend fun course(id: String, fields: Map<String, Int>?) = withContext(Dispatchers.IO) {
 
@@ -46,37 +55,61 @@ class CourseRepoImpl(private val database: MongoDatabase) {
         )
         pipeline += Aggregates.addFields(
             Field(
-                "reviews",
+                "sections",
                 BsonDocument("\$map", BsonDocument().apply {
-                    put("input", BsonString("\$reviews"))
-                    put("as", BsonString("review"))
+                    put("input", BsonString("\$sections"))
+                    put("as", BsonString("section"))
                     put("in", BsonDocument().apply {
-                        put("_id", BsonString("\$\$review._id"))
-                        /*put("studentId", BsonString("\$\$review.studentId"))
-                        put("rating", BsonString("\$\$review.rating"))
-                        put("comment", BsonString("\$\$review.comment"))
-                        put("createdAt", BsonString("\$\$review.createdAt"))
-                        put("updatedAt", BsonString("\$\$review.updatedAt"))*/
+                        put("id", BsonString("\$\$section.id"))
+                        put("title", BsonString("\$\$section.title"))
+                        put(
+                            "lectures",
+                            BsonDocument("\$map", BsonDocument().apply {
+                                put("input", BsonString("\$\$section.lectures"))
+                                put("as", BsonString("lecture"))
+                                put("in", BsonDocument().apply {
+                                    put("id", BsonString("\$\$lecture.id"))
+                                    put("name", BsonString("\$\$lecture.name"))
+                                    put("duration", BsonString("\$\$lecture.duration"))
+                                })
+                            })
+                        )
+
                     })
                 })
             )
+
         )
         pipeline += Aggregates.addFields(
             Field("rating", BsonDocument("\$avg", BsonArray().apply {
                 add(BsonString("\$reviews.rating"))
             })),
-            Field("nbStudents", BsonDocument("\$size", BsonString("\$enrolledStudents")))
+            Field(
+                "nbRating",
+                BsonDocument(
+                    "\$size",
+                    BsonString("\$reviews")
+                )
+
+            ),
+            Field("nbStudents", BsonDocument("\$size", BsonString("\$enrolledStudents"))),
         )
-        if (!fields.isNullOrEmpty()) {
-            val projectionFields = Document(fields)
-            pipeline += Aggregates.project(projectionFields)
-        }
+
+        pipeline += Aggregates.addFields(
+            Field("id", Document("\$toString" , BsonString("\$_id"))),
+            Field("instructorId", Document("\$toString" ,BsonString("\$instructorId")))
+        )
+
         pipeline += Aggregates.project(
             Projections.exclude(
                 "reviews",
                 "enrolledStudents"
             )
         )
+        if (!fields.isNullOrEmpty()) {
+            val projectionFields = Document(fields)
+            pipeline += Aggregates.project(projectionFields)
+        }
 
 
 
@@ -96,66 +129,115 @@ class CourseRepoImpl(private val database: MongoDatabase) {
         fields: Map<String, Int>? = null,
         sortBy: Map<String, Int> = mapOf(),
         page: Int = 1,
-        limit: Int?
+        limit: Int? = Int.MAX_VALUE
     ): List<String> =
         withContext(Dispatchers.IO) {
 
             val pipeline = mutableListOf<Bson>()
-
             pipeline += Aggregates.lookup(
                 "reviews",
                 "_id",
                 "courseId",
                 "reviews"
             )
-            pipeline += Aggregates.addFields(
-                Field(
-                    "reviews",
-                    BsonDocument("\$map", BsonDocument().apply {
-                        put("input", BsonString("\$reviews"))
-                        put("as", BsonString("review"))
-                        put("in", BsonDocument().apply {
-                            put("_id", BsonString("\$\$review._id"))
-                            /*put("studentId", BsonString("\$\$review.studentId"))
-                            put("rating", BsonString("\$\$review.rating"))
-                            put("comment", BsonString("\$\$review.comment"))
-                            put("createdAt", BsonString("\$\$review.createdAt"))
-                            put("updatedAt", BsonString("\$\$review.updatedAt"))*/
-                        })
-                    })
-                )
+
+            pipeline += Aggregates.lookup(
+                "categories", // Foreign collection
+                "category",   // Local field (title in courses)
+                "title",      // Foreign field (title in categories)
+                "categoryDetails" // Output field
+            )
+            pipeline += Aggregates.unwind(
+                "\$categoryDetails",
+                UnwindOptions().preserveNullAndEmptyArrays(true)
             )
             pipeline += Aggregates.addFields(
                 Field(
-                    "nbEnrolledStudents",
-                    BsonDocument(
-                        "\$size", BsonString("\$enrolledStudents")
-                    )
-                )
-            )
-            pipeline += Aggregates.addFields(
-                Field(
-                    "rating",
-                    BsonDocument(
-                        "\$ifNull", BsonArray().apply {
-                            add(
-                                BsonDocument(
-                                    "\$avg", BsonArray().apply {
-                                        add(BsonString("\$reviews.rating"))
-                                    }
+                    "categoryDetails.subCategory",
+                    Document(
+                        "\$cond", listOf(
+                            Document(
+                                "\$gte", listOf(
+                                    Document(
+                                        "\$indexOfArray", listOf(
+                                            "\$categoryDetails.subCategories.title", "\$subCategory"
+                                        )
+                                    ),
+                                    0
                                 )
-                            )
-                            add(BsonDouble(0.0))
-                        }
-                    )
-                ),
-                Field(
-                    "nbRating",
-                    BsonDocument(
-                        "\$size",
-                        BsonString("\$reviews")
+                            ),
+                            Document(
+                                "\$arrayElemAt", listOf(
+                                    "\$categoryDetails.subCategories",
+                                    Document(
+                                        "\$indexOfArray", listOf(
+                                            "\$categoryDetails.subCategories.title", "\$subCategory"
+                                        )
+                                    )
+                                )
+                            ),
+                            null
+                        )
                     )
                 )
+            )
+
+            pipeline += Aggregates.project(
+                Projections.fields(
+                    Projections.computed(
+                        "id", Document("\$toString", "\$_id")
+                    ),
+                    Projections.computed(
+                        "instructorId", Document("\$toString", "\$instructorId")
+                    ),
+                    Projections.computed(
+                        "categoryDetails.id", Document("\$toString", "\$categoryDetails._id")
+                    ),
+                    Projections.include(
+                        "title",
+                        "subTitle",
+                        /*"category",
+                        "subCategory",*/
+                        "price",
+                        "discount",
+                        "description",
+                        "topic",
+                        "level",
+                        "courseImage",
+                        "duration",
+                        "language",
+                        "createdAt",
+                        "courseTrailer",
+                        "courseGoals",
+                        "requirements",
+                        "targetAudience",
+                        "categoryDetails.title",
+                        "categoryDetails.icon",
+                        "categoryDetails.color",
+                        "categoryDetails.subCategory.title",
+                    ),
+                    Projections.computed(
+                        "nbRating",
+                        BsonDocument(
+                            "\$size",
+                            BsonString("\$reviews")
+                        )
+                    ),
+                    Projections.computed(
+                        "averageRating", Document(
+                            "\$ifNull", listOf(
+                                Document("\$avg", "\$reviews.rating"), 0
+                            )
+                        )
+                    ),
+                    Projections.computed(
+                        "nbEnrolledStudents",
+                        BsonDocument(
+                            "\$size", BsonString("\$enrolledStudents")
+                        )
+                    )
+                )
+
             )
 
             if (filters.isNotEmpty()) {
@@ -178,7 +260,18 @@ class CourseRepoImpl(private val database: MongoDatabase) {
 
             coursesCollection
                 .aggregate(pipeline)
-                .map { bsonDocument -> bsonDocument.toJson() }
+                .map { bsonDocument ->
+
+                    if ((fields != null && fields.containsKey("courseImage")) || fields == null) {
+                        val courseImage = bsonDocument.get("courseImage") as? Binary
+                        val base64Image = courseImage?.let { Base64.getEncoder().encodeToString(it.data) }
+                        val updatedDocument = bsonDocument.toMutableMap().apply {
+                            this["courseImage"] = base64Image
+                        }
+                        return@map Document(updatedDocument).toJson()
+                    }
+                    Document(bsonDocument).toJson()
+                }
                 .toList()
 
         }
@@ -195,15 +288,123 @@ class CourseRepoImpl(private val database: MongoDatabase) {
     }
 
 
-    suspend fun createCourse(course : Course , courseImage: Binary) = withContext(Dispatchers.IO){
-        coursesCollection.insertOne(course.toDocument().append("courseImage" , courseImage)).insertedId?.asObjectId()?.value.toString()
+    /*suspend fun createCourse(course: Course, courseImage: Binary) = withContext(Dispatchers.IO) {
+        coursesCollection.insertOne(
+            course.toDocument().append("courseImage", courseImage)
+        ).insertedId?.asObjectId()?.value.toString()
 
-    }
-    suspend fun addSection(courseId : String ,section : Section ) = withContext(Dispatchers.IO){
+    }*/
+
+    suspend fun addSection(courseId: String, section: Section) = withContext(Dispatchers.IO) {
         val update = Updates.addToSet("sections", section.toDocument())
         val co = coursesCollection.updateOne(Filters.eq(ObjectId(courseId)), update).wasAcknowledged()
         if (co) section.id["\$oid"]
-        else ""
+        else null
     }
-    suspend fun addLecture(lecture : Lecture) = withContext(Dispatchers.IO){}
+
+    suspend fun deleteSection(courseId: String, sectionId: String) = withContext(Dispatchers.IO) {
+        val updateResult = coursesCollection.updateOne(
+            Filters.eq("_id", ObjectId(courseId)),
+            Updates.pull(
+                "sections",
+                Filters.eq("id", ObjectId(sectionId))
+            )
+        )
+        updateResult.wasAcknowledged()
+    }
+
+    suspend fun addLecture(lecture: Lecture, courseId: String, sectionId: String) = withContext(Dispatchers.IO) {
+
+        val updateResult = coursesCollection.updateOne(
+            Filters.and(
+                Filters.eq("_id", ObjectId(courseId)),
+                Filters.eq("sections.id", ObjectId(sectionId))
+            ),
+            Updates.push("sections.$[sectionFilter].lectures", lecture.toDocument()),
+            UpdateOptions().arrayFilters(
+                listOf(Filters.eq("sectionFilter.id", ObjectId(sectionId)))
+            )
+        ).wasAcknowledged()
+        if (updateResult) lecture.id["\$oid"]
+        else null
+    }
+
+    suspend fun deleteLecture(lectureId: String, courseId: String, sectionId: String) = withContext(Dispatchers.IO) {
+        val updateResult = coursesCollection.updateOne(
+            Filters.eq("_id", ObjectId(courseId)),
+            Updates.pull(
+                "sections.$[sectionFilter].lectures",
+                Filters.eq("id", ObjectId(lectureId))
+            ),
+            UpdateOptions().arrayFilters(
+                listOf(Filters.eq("sectionFilter.id", ObjectId(sectionId)))
+            )
+        )
+        updateResult.wasAcknowledged()
+    }
+
+    suspend fun publicCourse(instructorId: String) = withContext(Dispatchers.IO) {
+        val courseDoc = instructorCollection.find(Filters.eq("_id", ObjectId(instructorId)))
+            .projection(Projections.include("tempCourse"))
+            .first()
+
+        courseDoc?.get("tempCourse")?.let {
+            val inserted = coursesCollection.insertOne(it as Document).wasAcknowledged()
+            if (inserted) instructorCollection.updateOne(
+                Filters.eq(ObjectId(instructorId)),
+                Updates.set("tempCourse", null)
+            )
+            return@withContext inserted
+        }
+        return@withContext false
+
+    }
+
+    suspend fun calCourseDuration(fileService: FileRepoImpl) = withContext(Dispatchers.IO) {
+        val course = coursesCollection.find().firstOrNull()
+
+        if (course == null) {
+            println("Course not found!")
+            return@withContext
+        }
+
+        val sections = course["sections"] as List<Document>
+        var totalDuration = 0.0
+
+        sections.forEach { section ->
+            val lectures = section["lectures"] as List<Document>
+            lectures.forEach { lecture ->
+
+                val duration = fileService.getVideoDuration(lecture.getObjectId("video"))
+                lecture["duration"] = duration
+                totalDuration += duration
+            }
+        }
+
+        // Update the course document with the updated sections and total duration
+        val updatedCourse = Document(course)
+        updatedCourse["sections"] = sections
+        updatedCourse["duration"] = totalDuration
+
+        coursesCollection.replaceOne(Document("_id", course.getObjectId("_id")), updatedCourse)
+    }
+
+    suspend fun updateCourseImage(courseId: String, image: Binary) = withContext(Dispatchers.IO) {
+        coursesCollection.updateOne(
+            Filters.eq(ObjectId(courseId)),
+            Updates.set("courseImage", image),
+            UpdateOptions().upsert(true)
+        )
+    }
+
+   /* suspend fun coursesByInstructor(instructorId: String) = withContext(Dispatchers.IO) {
+        coursesCollection.find(Filters.eq("instructorId" , ObjectId(instructorId))).map{
+            val courseImage = it.get("courseImage") as? Binary
+            val base64Image = courseImage?.let { Base64.getEncoder().encodeToString(it.data) }
+            val updatedDocument = it.toMutableMap().apply {
+                this["courseImage"] = base64Image
+            }
+            Document(updatedDocument).toJson()
+        }.toList()
+    }*/
 }

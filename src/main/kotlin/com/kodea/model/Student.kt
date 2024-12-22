@@ -28,7 +28,7 @@ data class Student(
     val password: String,
     val title : String? = null,
     val roles : Array<Role> = arrayOf(Role.Student),
-    val createdAt : Instant
+    val createdAt : Long
 ) {
     fun toDocument(): Document = Document.parse(Json.encodeToString(this))
     companion object {
@@ -51,7 +51,7 @@ data class StudentDTO(
 
 fun StudentDTO.toStudent(): Student {
     return Student(firstName, lastName, userName, image, email, password, title, arrayOf(Role.Student),
-        Clock.System.now()
+        Clock.System.now().toEpochMilliseconds()
     )
 }
 object InstantSerializer : KSerializer<Instant> {

@@ -69,13 +69,7 @@ fun Route.studentRoutes(studentService : StudentRepoImpl , fileService : FileRep
             call.respond(HttpStatusCode.OK)
         } ?: call.respond(HttpStatusCode.NotFound)
     }
-    // Delete student
-    delete("/students/{id}") {
-        val id = call.parameters["id"] ?: throw IllegalArgumentException("No ID found")
-        studentService.delete(id)?.let {
-            call.respond(HttpStatusCode.OK)
-        } ?: call.respond(HttpStatusCode.NotFound)
-    }
+
     //authenticate("jwt-auth") {
     get("/students") {
         //val id = call.parameters["id"] ?: throw IllegalArgumentException("No ID found")

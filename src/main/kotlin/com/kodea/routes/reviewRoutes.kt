@@ -19,18 +19,5 @@ fun Route.reviewRoute(reviewService : ReviewRepoImpl){
             call.respond(HttpStatusCode.BadRequest, e.message ?: "error")
         }
     }
-    get("/reviews"){
-        val params = call.request.queryParameters
-        val of = params["of"] ?: return@get call.respond(HttpStatusCode.BadRequest, "of parameter required")
-        val id = params["id"] ?: return@get call.respond(HttpStatusCode.BadRequest, "id required")
-        try {
-            reviewService.getReviews(of , id)?.let {
-                call.respondText(it , ContentType.Application.Json, HttpStatusCode.OK)
-                return@get
-            }
-            call.respond(HttpStatusCode.NotFound, "review not found")
-        }catch (e: Exception){
-            call.respond(HttpStatusCode.BadRequest, e.message ?: "error")
-        }
-    }
+
 }

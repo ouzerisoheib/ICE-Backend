@@ -44,11 +44,11 @@ data class Course(
     val courseGoals : List<String> = emptyList(),
     val requirements : List<String> = emptyList(),
     val targetAudience : List<String> = emptyList(),
-    val language : String = Locale.UK.language,
+    val language : String,
     val sections : Array<Section> = arrayOf(),
     //@Contextual
     val createdAt : Long = Clock.System.now().toEpochMilliseconds(),
-    val enrolledStudents : List<String> = emptyList()
+    val enrolledStudents : Array<Map<String , String>> = arrayOf()
 ){
     fun toDocument(): Document = Document.parse(Json.encodeToString(this))
 
@@ -78,7 +78,7 @@ data class CourseDTO(
     val courseGoals : List<String> = emptyList(),
     val requirements : List<String> = emptyList(),
     val targetAudience : List<String> = emptyList(),
-    val language : String = Locale.UK.language,
+    val language : String,
     val sections : Array<Section> = arrayOf(),
 )
 
@@ -103,7 +103,7 @@ fun CourseDTO.toCourse() : Course = Course(
     language = this.language,
     sections = this.sections,
     createdAt = Clock.System.now().toEpochMilliseconds(),
-    enrolledStudents = emptyList()
+    enrolledStudents = arrayOf()
 )
 
 /*
