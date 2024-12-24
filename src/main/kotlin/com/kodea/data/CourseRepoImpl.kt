@@ -27,12 +27,15 @@ import java.util.logging.Filter
 
 class CourseRepoImpl(private val database: MongoDatabase) {
     private var coursesCollection: MongoCollection<Document>
+    private var studentsCollection: MongoCollection<Document>
     private var instructorCollection: MongoCollection<Document>
 
     init {
         database.createCollection("courses")
         coursesCollection = database.getCollection("courses")
         instructorCollection = database.getCollection("users")
+        studentsCollection = database.getCollection("users")
+
     }
 
 
@@ -282,11 +285,15 @@ class CourseRepoImpl(private val database: MongoDatabase) {
         )
         val updateCourseCollection =
             coursesCollection.updateOne(Filters.eq(ObjectId(courseId)), courseUpdates).wasAcknowledged()
+
+        val studentUpdates =Updates.combine(
+            Updates.addToSet("enrolledCourses", ObjectId(courseId))
+        )
+        val updateStudentCollection =studentsCollection.updateOne(Filters.eq(ObjectId(studentId)), studentUpdates).wasAcknowledged()
         //val userUpdates = Updates.
         //val updateUserCollection = coursesCollection.updateOne(Filters.eq(ObjectId(courseId)), update).wasAcknowledged()
         updateCourseCollection
     }
-
 
     /*suspend fun createCourse(course: Course, courseImage: Binary) = withContext(Dispatchers.IO) {
         coursesCollection.insertOne(

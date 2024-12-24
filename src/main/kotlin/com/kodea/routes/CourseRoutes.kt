@@ -401,6 +401,9 @@ fun Route.courseRoutes(
                 call.respond(HttpStatusCode.NotFound, "Course or section or lecture not found.")
             }
         }
+
+
+
     }
 
 
