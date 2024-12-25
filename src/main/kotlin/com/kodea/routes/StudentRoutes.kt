@@ -147,6 +147,8 @@ fun Route.studentRoutes(
                     call.respond(HttpStatusCode.NotFound, "Invalid course id.")
                 }
             }
+            else call.respond(HttpStatusCode.NotFound, "Invalid or expired token.")
+
         }
     }
     // Update student
