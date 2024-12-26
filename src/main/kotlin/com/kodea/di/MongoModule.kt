@@ -50,6 +50,12 @@ class MongoModule(private val config: ApplicationConfig) {
 
     @Provides
     @Singleton
+    fun provideForumRepoImpl(database: MongoDatabase): ForumRepoImpl {
+        return ForumRepoImpl(database)
+    }
+
+    @Provides
+    @Singleton
     fun provideReviewRepoImpl(database: MongoDatabase): ReviewRepoImpl {
         return ReviewRepoImpl(database)
     }

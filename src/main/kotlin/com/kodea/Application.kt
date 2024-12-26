@@ -37,6 +37,7 @@ fun Application.module() {
     val categoryService = appComponent.categoryService()
     val gridFSBucket = appComponent.gridFSBucket()
     val mongoClient = appComponent.mongoClient()
+    val forumService = appComponent.forumService()
     install(PartialContent)
     authentication()
     configureSecurity()
@@ -52,6 +53,7 @@ fun Application.module() {
         instructorRoutes(instructorService ,  courseService,fileService)
         reviewRoute(reviewService)
         categoryRoutes(categoryService)
+        forumRoutes(forumService, fileService, mongoClient)
     }
 }
 

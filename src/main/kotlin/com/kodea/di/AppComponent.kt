@@ -17,4 +17,5 @@ interface AppComponent {
     fun mongoClient(): MongoClient
     fun reviewService(): ReviewRepoImpl
     fun categoryService(): CategoryRepoImpl
+    fun forumService(): ForumRepoImpl
 }
