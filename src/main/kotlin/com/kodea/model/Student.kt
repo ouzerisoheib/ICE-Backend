@@ -28,7 +28,12 @@ data class Student(
     val password: String,
     val title : String? = null,
     val roles : Array<Role> = arrayOf(Role.Student),
-    val createdAt : Long
+    val createdAt : Long,
+    val enrolledCourses : Array<Map<String , String>> = arrayOf(),
+    val instructors : Array<Map<String , String>> = arrayOf(),
+    val wishlist : Array<Map<String , String>> = arrayOf(),
+    val cart : Array<Map<String , String>> = arrayOf(),
+
 ) {
     fun toDocument(): Document = Document.parse(Json.encodeToString(this))
     companion object {
@@ -50,8 +55,20 @@ data class StudentDTO(
 )
 
 fun StudentDTO.toStudent(): Student {
-    return Student(firstName, lastName, userName, image, email, password, title, arrayOf(Role.Student),
-        Clock.System.now().toEpochMilliseconds()
+    return Student(
+        firstName = firstName,
+        lastName = lastName,
+        userName = userName,
+        image = image,
+        email = email,
+        password = password,
+        title = title,
+        roles = arrayOf(Role.Student),
+        createdAt =  Clock.System.now().toEpochMilliseconds(),
+        enrolledCourses =  arrayOf(),
+        instructors = arrayOf(),
+        cart =  arrayOf(),
+        wishlist = arrayOf(),
     )
 }
 object InstantSerializer : KSerializer<Instant> {

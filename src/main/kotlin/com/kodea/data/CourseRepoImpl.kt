@@ -2,6 +2,7 @@ package com.kodea.data
 
 
 import com.kodea.model.Course
+import io.ktor.server.application.*
 import com.kodea.model.Lecture
 import com.kodea.model.Section
 import com.mongodb.client.MongoCollection
@@ -19,6 +20,7 @@ import org.bson.types.Binary
 import org.bson.types.ObjectId
 import java.util.Base64
 import com.kodea.utlis.getVideoDuration
+import com.mongodb.client.model.Filters.eq
 import com.mongodb.client.model.UnwindOptions
 import com.mongodb.client.model.UpdateOptions
 
@@ -27,12 +29,15 @@ import java.util.logging.Filter
 
 class CourseRepoImpl(private val database: MongoDatabase) {
     private var coursesCollection: MongoCollection<Document>
+    private var studentsCollection: MongoCollection<Document>
     private var instructorCollection: MongoCollection<Document>
 
     init {
         database.createCollection("courses")
         coursesCollection = database.getCollection("courses")
         instructorCollection = database.getCollection("users")
+        studentsCollection = database.getCollection("users")
+
     }
 
 
@@ -280,13 +285,57 @@ class CourseRepoImpl(private val database: MongoDatabase) {
         val courseUpdates = Updates.combine(
             Updates.addToSet("enrolledStudents", ObjectId(studentId))
         )
-        val updateCourseCollection =
-            coursesCollection.updateOne(Filters.eq(ObjectId(courseId)), courseUpdates).wasAcknowledged()
-        //val userUpdates = Updates.
-        //val updateUserCollection = coursesCollection.updateOne(Filters.eq(ObjectId(courseId)), update).wasAcknowledged()
-        updateCourseCollection
-    }
+        println("sssttt1:"+studentId)
+        println("sssttt2:"+courseId)
 
+        val updateCourseCollection =
+            coursesCollection.updateMany(Filters.eq(ObjectId(courseId)), courseUpdates).wasAcknowledged()
+
+        val instructorId =coursesCollection.find(Filters.eq("_id",ObjectId(courseId)))
+            .projection(Projections.fields(Projections.computed("instructorId",BsonDocument("\$toString",BsonString("\$instructorId"))),Projections.excludeId())).first()
+            ?.toString()?.removePrefix("Document{{instructorId=")?.removeSuffix("}}")
+        println("aaaaaaa: $instructorId")
+
+        val studentUpdates =Updates.combine(
+            Updates.addToSet("enrolledCourses", ObjectId(courseId)),
+            Updates.addToSet("instructors",ObjectId(instructorId))
+        )
+        val updateStudentCollection =studentsCollection.updateOne(Filters.eq(ObjectId(studentId)), studentUpdates).wasAcknowledged()
+        updateCourseCollection && updateStudentCollection
+
+        /*
+        try {
+            UpdateOptions().upsert(true)
+            val courseUpdate = coursesCollection.updateOne(
+                Filters.eq("_id", ObjectId(courseId)),
+                Updates.addToSet("enrolledStudents", ObjectId(studentId))
+            ).wasAcknowledged()
+
+            if (courseUpdate) {
+                return@withContext true
+            } else {
+                return@withContext false
+            }
+        } catch (e: Exception) {
+            println("Error updating wishlist: ${e.message}")
+        }
+        return@withContext false
+
+
+          */
+
+        /*
+         //val userUpdates = Updates.
+         //val updateUserCollection = coursesCollection.updateOne(Filters.eq(ObjectId(courseId)), update).wasAcknowledged()
+         */
+        //courseUpdate  && studentUpdate
+
+    }
+    suspend fun getInstructorId(courseId: String)=withContext(Dispatchers.IO) {
+        coursesCollection.find(Filters.eq("_id",ObjectId(courseId)))
+            .projection(Projections.fields(Projections.computed("instructorId",BsonDocument("\$toString",BsonString("\$instructorId"))),Projections.excludeId())).first()
+            ?.toString()?.removePrefix("Document{{instructorId=")?.removeSuffix("}}")
+    }
 
     /*suspend fun createCourse(course: Course, courseImage: Binary) = withContext(Dispatchers.IO) {
         coursesCollection.insertOne(

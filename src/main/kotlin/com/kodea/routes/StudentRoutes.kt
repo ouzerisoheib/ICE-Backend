@@ -17,7 +17,10 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
 
-fun Route.studentRoutes(studentService : StudentRepoImpl , fileService : FileRepoImpl) {
+fun Route.studentRoutes(
+    studentService : StudentRepoImpl ,
+    fileService : FileRepoImpl)
+{
 
     post("/register") {
         val studentDTO = call.receive<StudentDTO>()
@@ -59,6 +62,93 @@ fun Route.studentRoutes(studentService : StudentRepoImpl , fileService : FileRep
             studentService.read(id!!)?.let { student ->
                 call.respondText(student , ContentType.Application.Json)
             } ?: call.respond(HttpStatusCode.NotFound , "student not found")
+        }
+
+        get("/wishlist"){
+            val userPrincipal = call.authentication.principal<UserPrincipal>()
+            val id = userPrincipal?.id
+            studentService.getWishlist(id!!)?.let { wishlist ->
+                call.respondText(wishlist, ContentType.Application.Json)
+            } ?: call.respond(HttpStatusCode.NotFound , "student not found")
+        }
+        post("wishlist/{id}/remove") {
+            val params = call.parameters
+            val courseId = params["id"] ?: return@post call.respond(
+                HttpStatusCode.BadRequest,
+                "course id is required"
+            )
+            val userPrincipal = call.authentication.principal<UserPrincipal>()
+            val id = userPrincipal?.id
+            if (id != null) {
+                val res= studentService.removeFromWishlist(id,courseId)
+                if (res) {
+                    call.respond(HttpStatusCode.OK, "Course removed from Wishlist.")
+                } else {
+                    call.respond(HttpStatusCode.NotFound, "Course not found in wishlist.")
+                }
+            }
+        }
+        post("courses/{id}/addToWishlist") {
+            val params = call.parameters
+            val courseId = params["id"] ?: return@post call.respond(
+                HttpStatusCode.BadRequest,
+                "course id is required"
+            )
+            val userPrincipal = call.authentication.principal<UserPrincipal>()
+            val id = userPrincipal?.id
+            if (id != null) {
+                val res= studentService.addToWishlist(id,courseId)
+                if (res) {
+                    call.respond(HttpStatusCode.OK, "Course added Wishlist.")
+                } else {
+                    call.respond(HttpStatusCode.NotFound, "Invalid course id.")
+                }
+            }
+        }
+
+        get("/cart"){
+            val userPrincipal = call.authentication.principal<UserPrincipal>()
+            val id = userPrincipal?.id
+            studentService.getCart(id!!)?.let { cart ->
+                call.respondText(cart, ContentType.Application.Json)
+            } ?: call.respond(HttpStatusCode.NotFound , "student not found")
+        }
+        post("cart/{id}/remove") {
+            val params = call.parameters
+            val courseId = params["id"] ?: return@post call.respond(
+                HttpStatusCode.BadRequest,
+                "course id is required"
+            )
+            val userPrincipal = call.authentication.principal<UserPrincipal>()
+            val id = userPrincipal?.id
+            if (id != null) {
+                val res= studentService.removeFromCart(id,courseId)
+                if (res) {
+                    call.respond(HttpStatusCode.OK, "Course removed from cart.")
+                } else {
+                    call.respond(HttpStatusCode.NotFound, "Course not found in cart.")
+                }
+            }
+        }
+
+        post("courses/{id}/addToCart") {
+            val params = call.parameters
+            val courseId = params["id"] ?: return@post call.respond(
+                HttpStatusCode.BadRequest,
+                "course id is required"
+            )
+            val userPrincipal = call.authentication.principal<UserPrincipal>()
+            val id = userPrincipal?.id
+            if (id != null) {
+                val res= studentService.addToCart(id,courseId)
+                if (res) {
+                    call.respond(HttpStatusCode.OK, "Course added cart.")
+                } else {
+                    call.respond(HttpStatusCode.NotFound, "Invalid course id.")
+                }
+            }
+            else call.respond(HttpStatusCode.NotFound, "Invalid or expired token.")
+
         }
     }
     // Update student

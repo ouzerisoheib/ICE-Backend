@@ -225,6 +225,39 @@ fun Route.courseRoutes(
                 call.respond(HttpStatusCode.BadRequest, e.message ?: "error")
             }
         }*/
+
+        post("/courses/{id}/enroll"){
+            val userPrincipal: UserPrincipal? = call.authentication.principal<UserPrincipal>()
+            val id = userPrincipal?.id
+
+            val params = call.parameters
+            val courseId = params["id"] ?: return@post call.respond(
+                HttpStatusCode.BadRequest,
+                "course id is required"
+            )
+
+            if (id != null) {
+                val res =courseService.enrollInCourse(courseId,id)
+                if (res) {
+                    call.respond(HttpStatusCode.OK, "Enrolled to course.")
+                } else {
+                    call.respond(HttpStatusCode.NotFound, "Invalid course id.")
+                }
+            }
+            else call.respond(HttpStatusCode.NotFound, "Invalid or expired token.")
+
+
+        }
+    }
+    get("courses/{id}/inst"){
+        val params = call.parameters
+        val id = params["id"] ?: return@get call.respond(
+            HttpStatusCode.BadRequest,
+            "course id is required"
+        )
+        var res= courseService.getInstructorId(id)?.removePrefix("Document{{instructorId=")?.removeSuffix("}}")
+            call.respond(HttpStatusCode.OK, "instructor id found: $res")
+
     }
     get("/courses/{id}") {
         try {
@@ -243,6 +276,7 @@ fun Route.courseRoutes(
             call.respond(HttpStatusCode.BadRequest, e.message ?: "error")
         }
     }
+
     /* get("/files/{id}") {
          val fileId = call.parameters["id"] ?: return@get call.respond(
              HttpStatusCode.BadRequest,
@@ -401,6 +435,9 @@ fun Route.courseRoutes(
                 call.respond(HttpStatusCode.NotFound, "Course or section or lecture not found.")
             }
         }
+
+
+
     }
 
 
