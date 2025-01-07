@@ -20,13 +20,12 @@ fun Route.forumRoutes(
     authenticate("jwt-auth") {
         post("/courses/{courseId}/forum") {
             val token = call.authentication.principal<UserPrincipal>()
-            val userId = token?.id
-            if (userId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.Unauthorized, "Invalid token")
-                return@post
-            }
+            val userId = token?.id ?: return@post call.respond(HttpStatusCode.Unauthorized)
+            val courseId = call.parameters["courseId"] ?: return@post call.respond(HttpStatusCode.BadRequest)
 
-            val courseId = call.parameters["courseId"] ?: return@post call.respond(HttpStatusCode.BadRequest, "Course ID required")
+            if (!forumService.checkEnrollment(courseId, userId)) {
+                return@post call.respond(HttpStatusCode.Forbidden, "Not enrolled in course")
+            }
             val questionDTO = call.receive<QuestionDTO>()
 
             val result = forumService.addQuestion(questionDTO, courseId, userId)
@@ -88,5 +87,113 @@ fun Route.forumRoutes(
             val views = forumService.getViewCount(id)
             call.respond(mapOf("views" to views))
         }
+        delete("/forum/questions/{id}") {
+            val token = call.authentication.principal<UserPrincipal>()
+            val userId = token?.id ?: return@delete call.respond(HttpStatusCode.Unauthorized)
+            val questionId = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
+
+            val result = forumService.deleteQuestion(questionId, userId)
+            if (result) {
+                call.respond(HttpStatusCode.OK)
+            } else {
+                call.respond(HttpStatusCode.NotFound)
+            }
+        }
+
+        put("/forum/questions/{id}") {
+            val token = call.authentication.principal<UserPrincipal>()
+            val userId = token?.id ?: return@put call.respond(HttpStatusCode.Unauthorized)
+            val questionId = call.parameters["id"] ?: return@put call.respond(HttpStatusCode.BadRequest)
+            val questionDTO = call.receive<QuestionDTO>()
+
+            val result = forumService.editQuestion(questionId, userId, questionDTO)
+            if (result) {
+                call.respond(HttpStatusCode.OK)
+            } else {
+                call.respond(HttpStatusCode.NotFound)
+            }
+        }
+        delete("/forum/answers/{id}") {
+            val token = call.authentication.principal<UserPrincipal>()
+            val userId = token?.id ?: return@delete call.respond(HttpStatusCode.Unauthorized)
+            val answerId = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
+
+            val result = forumService.deleteAnswer(answerId, userId)
+            call.respond(if (result) HttpStatusCode.OK else HttpStatusCode.NotFound)
+        }
+
+        put("/forum/answers/{id}") {
+            val token = call.authentication.principal<UserPrincipal>()
+            val userId = token?.id ?: return@put call.respond(HttpStatusCode.Unauthorized)
+            val answerId = call.parameters["id"] ?: return@put call.respond(HttpStatusCode.BadRequest)
+            val answerDTO = call.receive<AnswerDTO>()
+
+            val result = forumService.editAnswer(answerId, userId, answerDTO)
+            call.respond(if (result) HttpStatusCode.OK else HttpStatusCode.NotFound)
+        }
+
+        post("/forum/answers/{answerId}/replies") {
+            val token = call.authentication.principal<UserPrincipal>()
+            val userId = token?.id ?: return@post call.respond(HttpStatusCode.Unauthorized)
+            val answerId = call.parameters["answerId"] ?: return@post call.respond(HttpStatusCode.BadRequest)
+            val answerDTO = call.receive<AnswerDTO>()
+
+            val result = forumService.addReply(answerDTO, answerId, userId)
+            call.respond(if (result != null) HttpStatusCode.OK else HttpStatusCode.NotFound)
+        }
+
+        get("/forum/answers/{answerId}/replies") {
+            val answerId = call.parameters["answerId"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+            val replies = forumService.getReplies(answerId)
+            call.respond(replies)
+        }
+
+        delete("/forum/replies/{id}") {
+            val token = call.authentication.principal<UserPrincipal>()
+            val userId = token?.id ?: return@delete call.respond(HttpStatusCode.Unauthorized)
+            val replyId = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
+
+            val result = forumService.deleteReply(replyId, userId)
+            call.respond(if (result) HttpStatusCode.OK else HttpStatusCode.NotFound)
+        }
+
+        put("/forum/replies/{id}") {
+            val token = call.authentication.principal<UserPrincipal>()
+            val userId = token?.id ?: return@put call.respond(HttpStatusCode.Unauthorized)
+            val replyId = call.parameters["id"] ?: return@put call.respond(HttpStatusCode.BadRequest)
+            val answerDTO = call.receive<AnswerDTO>()
+
+            val result = forumService.editReply(replyId, userId, answerDTO)
+            call.respond(if (result) HttpStatusCode.OK else HttpStatusCode.NotFound)
+        }
+
+        get("/forum/users/{id}") {
+            val userId = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+            val user = forumService.getUser(userId)
+            if (user != null) {
+                call.respond(user)
+            } else {
+                call.respond(HttpStatusCode.NotFound)
+            }
+        }
+        get("/users/{id}") {
+            val userId = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest, "User ID required")
+            val user = forumService.getUser(userId)
+            if (user != null) {
+                call.respond(user)
+            } else {
+                call.respond(HttpStatusCode.NotFound, "User not found")
+            }
+        }
+        get("/forum/questions/{id}") {
+            val questionId = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest, "Question ID required")
+            val question = forumService.getQuestion(questionId)
+            if (question != null) {
+                call.respond(question)
+            } else {
+                call.respond(HttpStatusCode.NotFound, "Question not found")
+            }
+        }
+
     }
 }

@@ -18,12 +18,16 @@ class ForumRepoImpl(private val database: MongoDatabase) {
     private var coursesCollection: MongoCollection<Document>
     private val answersCollection: MongoCollection<Document>
     private val votesCollection: MongoCollection<Document>
+    private val usersCollection: MongoCollection<Document>
+
     init{
         database.createCollection("courses")
         questionsCollection = database.getCollection("questions")
         coursesCollection = database.getCollection("courses")
         answersCollection = database.getCollection("answers")
         votesCollection = database.getCollection("votes")
+        usersCollection = database.getCollection("users")
+
     }
 
 suspend fun addQuestion(questionDTO: QuestionDTO, courseId: String, userId: String) = withContext(Dispatchers.IO) {
@@ -132,4 +136,158 @@ suspend fun addQuestion(questionDTO: QuestionDTO, courseId: String, userId: Stri
             .firstOrNull()
             ?.getInteger("views") ?: 0
     }
+    suspend fun checkEnrollment(courseId: String, userId: String): Boolean = withContext(Dispatchers.IO) {
+        val course = coursesCollection
+            .find(Filters.eq("_id", ObjectId(courseId)))
+            .firstOrNull()
+            ?: return@withContext false
+
+        val enrolledStudents = course.getList("enrolledStudents", String::class.java) ?: emptyList()
+        return@withContext enrolledStudents.contains(userId)
+    }
+    suspend fun getQuestion(questionId: String): Question? = withContext(Dispatchers.IO) {
+        try {
+            questionsCollection
+                .find(Filters.eq("_id", ObjectId(questionId)))
+                .firstOrNull()
+                ?.let { Question.fromDocument(it) }
+        } catch (e: Exception) {
+            println("Error fetching question: ${e.message}")
+            null
+        }
+    }
+
+    suspend fun deleteQuestion(questionId: String, userId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val question = questionsCollection
+                .find(Filters.eq("_id", ObjectId(questionId)))
+                .firstOrNull()
+                ?.let { Question.fromDocument(it) }
+                ?: return@withContext false
+
+            // Delete the question directly since we don't need to update course references
+            val result = questionsCollection.deleteOne(Filters.eq("_id", ObjectId(questionId)))
+            return@withContext result.wasAcknowledged()
+        } catch (e: Exception) {
+            println("Error deleting question: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun editQuestion(questionId: String, userId: String, questionDTO: QuestionDTO): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val updates = Updates.combine(
+                Updates.set("title", questionDTO.title),
+                Updates.set("description", questionDTO.description),
+                Updates.set("files", questionDTO.files),
+                Updates.set("section", questionDTO.section),
+                Updates.set("lecture", questionDTO.lecture)
+            )
+
+            val result = questionsCollection.updateOne(
+                Filters.eq("_id", ObjectId(questionId)),
+                updates
+            )
+            return@withContext result.wasAcknowledged()
+        } catch (e: Exception) {
+            println("Error editing question: ${e.message}")
+            false
+        }
+    }
+    suspend fun deleteAnswer(answerId: String, userId: String): Boolean = withContext(Dispatchers.IO) {
+        val answer = answersCollection
+            .find(Filters.eq("_id", ObjectId(answerId)))
+            .firstOrNull()
+            ?.let { Answer.fromDocument(it) }
+            ?: return@withContext false
+
+        if (answer.userId["\$oid"] != userId) return@withContext false
+
+        answersCollection.deleteOne(Filters.eq("_id", ObjectId(answerId))).wasAcknowledged()
+    }
+
+    suspend fun editAnswer(answerId: String, userId: String, answerDTO: AnswerDTO): Boolean = withContext(Dispatchers.IO) {
+        val answer = answersCollection
+            .find(Filters.eq("_id", ObjectId(answerId)))
+            .firstOrNull()
+            ?: return@withContext false
+
+        if (Answer.fromDocument(answer).userId["\$oid"] != userId) return@withContext false
+
+        val updates = Updates.combine(
+            Updates.set("description", answerDTO.description),
+            Updates.set("files", answerDTO.files)
+        )
+
+        answersCollection.updateOne(Filters.eq("_id", ObjectId(answerId)), updates).wasAcknowledged()
+    }
+
+    suspend fun addReply(answerDTO: AnswerDTO, parentAnswerId: String, userId: String): String? = withContext(Dispatchers.IO) {
+        val reply = answerDTO.toAnswer(userId, parentAnswerId)
+        val replyResult = answersCollection.insertOne(reply.toDocument())
+        if (!replyResult.wasAcknowledged()) return@withContext null
+
+        val replyId = replyResult.insertedId?.asObjectId()?.value.toString()
+        val parentUpdate = answersCollection.updateOne(
+            Filters.eq("_id", ObjectId(parentAnswerId)),
+            Updates.push("replies", mapOf("\$oid" to replyId))
+        )
+
+        if (parentUpdate.wasAcknowledged()) replyId else null
+    }
+
+    suspend fun getReplies(answerId: String): List<Answer> = withContext(Dispatchers.IO) {
+        val answer = answersCollection
+            .find(Filters.eq("_id", ObjectId(answerId)))
+            .firstOrNull()
+            ?.let { Answer.fromDocument(it) }
+            ?: return@withContext emptyList()
+
+        val replyIds = answer.replies.mapNotNull { it["\$oid"] }
+        answersCollection
+            .find(Filters.`in`("_id", replyIds.map { ObjectId(it) }))
+            .toList()
+            .map { Answer.fromDocument(it) }
+    }
+
+    suspend fun deleteReply(replyId: String, userId: String): Boolean = withContext(Dispatchers.IO) {
+        val reply = answersCollection
+            .find(Filters.eq("_id", ObjectId(replyId)))
+            .firstOrNull()
+            ?.let { Answer.fromDocument(it) }
+            ?: return@withContext false
+
+        if (reply.userId["\$oid"] != userId) return@withContext false
+
+        answersCollection.deleteOne(Filters.eq("_id", ObjectId(replyId))).wasAcknowledged()
+    }
+
+    suspend fun editReply(replyId: String, userId: String, answerDTO: AnswerDTO): Boolean = withContext(Dispatchers.IO) {
+        val reply = answersCollection
+            .find(Filters.eq("_id", ObjectId(replyId)))
+            .firstOrNull()
+            ?: return@withContext false
+
+        if (Answer.fromDocument(reply).userId["\$oid"] != userId) return@withContext false
+
+        val updates = Updates.combine(
+            Updates.set("description", answerDTO.description),
+            Updates.set("files", answerDTO.files)
+        )
+
+        answersCollection.updateOne(Filters.eq("_id", ObjectId(replyId)), updates).wasAcknowledged()
+    }
+
+        suspend fun getUser(userId: String): User? = withContext(Dispatchers.IO) {
+            try {
+                usersCollection
+                    .find(Filters.eq("_id", ObjectId(userId)))
+                    .firstOrNull()
+                    ?.let { User.fromDocument(it) }
+            } catch (e: Exception) {
+                println("Error fetching user: ${e.message}")
+                null
+            }
+        }
+
 }
